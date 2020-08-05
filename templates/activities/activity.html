@@ -1,0 +1,6 @@
+<h1> {{ activity.start_time }} </h1>
+<ul>
+    {% for lap in activity.lap_set.all %}
+        <li> {{ lap.timer_time }} {{ lap.speed }} </li>
+    {% endfor %}
+</ul>
