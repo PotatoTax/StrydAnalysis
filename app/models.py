@@ -19,6 +19,8 @@ class Activity(models.Model):
     max_heart_rate = models.IntegerField()
     cadence = models.IntegerField()
     max_cadence = models.IntegerField()
+    power = models.IntegerField()
+    max_power = models.IntegerField()
     aerobic_training_effect = models.FloatField()
     anaerobic_training_effect = models.FloatField()
 

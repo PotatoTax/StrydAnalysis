@@ -20,6 +20,7 @@ def parse_fit(file: InMemoryUploadedFile):
         lap.save()
 
     records = load_records(records)
+
     for j in range(len(laps)):
         for i in range(laps[j].record_start, laps[j].record_end + 1):
             records[i].activity = activity
@@ -56,6 +57,18 @@ def load_activity(records):
     activity.max_cadence = activity_data.get_value('max_running_cadence')
     activity.aerobic_training_effect = activity_data.get_value('total_training_effect')
     activity.anaerobic_training_effect = activity_data.get_value('total_anaerobic_training_effect')
+
+    activity.max_power = 0
+    power = 0
+
+    recs = [r for r in records if r.name == 'record']
+
+    for r in recs:
+        if r.get_value('Power') > activity.max_power:
+            activity.max_power = r.get_value('Power')
+        power += r.get_value('Power')
+
+    activity.power = power / len(recs)
 
     return activity
 
