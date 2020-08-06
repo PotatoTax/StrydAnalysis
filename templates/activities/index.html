@@ -1,11 +1,19 @@
-{% if latest_activity_list %}
-    <ul>
-    {% for activity in latest_activity_list %}
-        <li>
-            <a href="{{ activity.id }}">{{ activity.start_time }}</a>
-        </li>
-    {% endfor %}
-    </ul>
-{% else %}
-    <p>No activities are available.</p>
-{% endif %}
+{% extends "base.html" %}
+
+{% block heading %}
+    <h3>Recent Activities</h3>
+{% endblock %}
+
+{% block body %}
+    {% if latest_activity_list %}
+        <ul>
+        {% for activity in latest_activity_list %}
+            <li>
+                <a href="{{ activity.id }}">{{ activity.start_time }}</a>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No activities are available.</p>
+    {% endif %}
+{% endblock %}
