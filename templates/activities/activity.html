@@ -3,7 +3,6 @@
 {% load static %}
 
 {% block loadscripts %}
-    <script src="https://code.highcharts.com/highcharts.src.js"></script>
     <script src="http://code.highcharts.com/highcharts.js"></script>
     <script src="{% static "/js/jquery.min.js" %}"></script>
 {% endblock %}
@@ -13,26 +12,35 @@
 {% endblock %}
 
 {% block body %}
-    <div id={{ chart_id | safe }} class="chart" style="height: 100px; width:100%"></div>
+    <figure class="highcharts-figure">
+        <div id="{{ chart_id | safe }}"></div>
+    </figure>
+    <div id='{{ chart_id | safe }}' class="chart" style="height: 100px; width:100%"></div>
 {% endblock %}
 
 {% block scripts %}
     <script>
-        var chart_id = {{ chart_id|safe }}
-        var chart = {{ chart|safe }}
         var title = "{{ title|safe }}"
         var xAxis = {{ xAxis|safe }}
         var yAxis = {{ yAxis|safe }}
         var series = {{ series|safe }}
 
-        $(document).ready(function() {
-            $(chart_id).highcharts({
-                chart: chart,
+        Highcharts.chart('{{ chart_id }}',
+            {
                 title: title,
-                xAxis: xAxis,
                 yAxis: yAxis,
-                series: series
-            });
-        });
+                xAxis: xAxis,
+                series: series,
+                plotOptions: {
+                    series: {
+                        states: {
+                            hover: {
+                                lineWidth: 1
+                            }
+                        },
+                        lineWidth: 1
+                    }
+                }
+            })
     </script>
 {% endblock %}
