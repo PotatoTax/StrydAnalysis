@@ -15,12 +15,17 @@
     <figure class="highcharts-figure">
         <div id="{{ chart_id | safe }}"></div>
     </figure>
-    <div id='{{ chart_id | safe }}' class="chart" style="height: 100px; width:100%"></div>
+
+    <form action="" method="post">
+        {% csrf_token %}
+        {{ form.as_ul }}
+        <input type="submit" value="Apply">
+    </form>
 {% endblock %}
 
 {% block scripts %}
     <script>
-        var title = "{{ title|safe }}"
+        var title = "{{ title|safe }}";
         var xAxis = {{ xAxis|safe }}
         var yAxis = {{ yAxis|safe }}
         var series = {{ series|safe }}
