@@ -32,41 +32,77 @@
         let xAxis = {{ xAxis|safe }};
         let tooltip = {{ tooltip|safe }};
 
+        let checkedFields;
+        let displayedFields = [];
         let series;
         let chart;
 
-        apply = function () {
+        updateCheckedFields = function () {
             let form = document.getElementById("field_form").getElementsByTagName('input')
-            let fields = [];
+            checkedFields = []
 
             for (let i = 1; i < form.length; i++) {
                 let f = form[i].getAttribute('name')
                 if (document.getElementById('id_' + f).checked) {
-                    fields.push(f)
+                    checkedFields.push(f)
+                }
+            }
+        }
+
+        apply = function () {
+            updateCheckedFields()
+
+            const newFields = [];
+            const oldFields = [];
+
+            for (const field in checkedFields) {
+                if (checkedFields.hasOwnProperty(field)) {
+                    if (!displayedFields.includes(checkedFields[field])) {
+                        newFields.push(checkedFields[field])
+                    }
                 }
             }
 
-            $.ajax({
-                url: '/activity/data/' + activityId,
-                type: 'GET',
-                data: {
-                    'fields': fields
-                },
-                dataType: 'json',
-                success: function (data) {
-                    while (chart.series.length) {
-                        chart.series[0].remove()
-                    }
-                    for (const key in data.series) {
-                        if (data.series.hasOwnProperty(key)) {
-                            chart.addSeries({
-                                name: key,
-                                data: data.series[key]
-                            })
-                        }
+            for (const field in displayedFields) {
+                if (displayedFields.hasOwnProperty(field)) {
+                    if (!checkedFields.includes(displayedFields[field])) {
+                        oldFields.push(displayedFields[field])
                     }
                 }
-            });
+            }
+
+            displayedFields = checkedFields
+
+            let i = 0
+            while (i < chart.series.length) {
+                if (oldFields.includes(chart.series[i].name)) {
+                    chart.series[i].remove()
+                } else {
+                    i++
+                }
+            }
+
+            if (newFields.length) {
+                $.ajax({
+                    url: '/activity/data/' + activityId,
+                    type: 'GET',
+                    data: {
+                        'fields': newFields
+                    },
+                    dataType: 'json',
+                    success: function (data) {
+
+                        for (const key in data.series) {
+                            if (data.series.hasOwnProperty(key)) {
+                                chart.addSeries({
+                                    name: key,
+                                    data: data.series[key]
+                                })
+                            }
+                        }
+                    }
+                });
+            }
         }
 
         $(document).ready( function () {
