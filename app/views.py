@@ -1,17 +1,8 @@
+from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 
 from .forms import ActivityDataForm
-from .models import Activity, Record
-
-previous_activity_data = {
-    'power': True,
-    'speed': False,
-    'heart_rate': False,
-    'cadence': False,
-    'ground_time': False,
-    'air_power': False,
-    'form_power': False
-}
+from .models import Activity
 
 
 def index(request):
@@ -22,13 +13,11 @@ def index(request):
     return render(request, 'activities/index.html', context)
 
 
-def activity(request, activity_id):
-    global previous_activity_data
-
+def activity_page(request, activity_id):
     form = ActivityDataForm()
+
     if request.method == 'GET':
-        form = ActivityDataForm(request.GET, initial=previous_activity_data)
-        previous_activity_data = form.data
+        form = ActivityDataForm(request.GET)
 
     activity = get_object_or_404(Activity, pk=activity_id)
 
@@ -45,25 +34,6 @@ def activity(request, activity_id):
         t += str(s % 60 // 1)
         times.append(t)
 
-    records = [r for r in Record.objects.filter(activity=activity)]
-    series = []
-
-    for field in reversed([k for k in form.data.keys()]):
-        if field in ['power', 'speed', 'heart_rate', 'cadence', 'form_power', 'air_power']:
-            series.append(
-                {
-                    "name": field,
-                    "data": [r.__getattribute__(field) for r in records]
-                }
-            )
-        if field == 'ground_time':
-            series.append(
-                {
-                    "name": field,
-                    "data": [r.__getattribute__(field) if r.__getattribute__(field) < 400 else 400 for r in records]
-                }
-            )
-
     context = {
         'activity': activity,
         'chart_id': 'chart_id',
@@ -72,19 +42,41 @@ def activity(request, activity_id):
             "type": 'line',
             "height": 500
         },
-        'series': series,
         'title': 'Activity Data',
         'xAxis': {
             "title": {"text": "Time (hh:mm:ss)"},
             "categories": times,
             "crosshairs": 'true'
         },
-        'yAxis': {
-            "title": {"text": 'Power'},
-            "categories": list(range(0, activity.max_power))
-        },
         'tooltip': {'shared': 'true'},
         'form': form
     }
 
     return render(request, 'activities/activity.html', context)
+
+
+def activity_data(request, activity_id):
+    # TODO: Split series into separate panes
+    activity = get_object_or_404(Activity, pk=activity_id)
+
+    fields = request.GET.getlist('fields[]')
+
+    series = {}
+
+    for f in fields:
+        series[f] = []
+        if f == 'ground_time':
+            for r in activity.record_set.all():
+                if r.__getattribute__(f) > 350:
+                    series[f].append(350)
+                else:
+                    series[f].append(r.__getattribute__(f))
+        else:
+            for r in activity.record_set.all():
+                series[f].append(r.__getattribute__(f))
+
+    data = {
+        'series': series
+    }
+
+    return JsonResponse(data)

@@ -4,6 +4,7 @@
 
 {% block loadscripts %}
     <script src="http://code.highcharts.com/highcharts.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
     <script src="{% static "/js/jquery.min.js" %}"></script>
 {% endblock %}
 
@@ -16,40 +17,59 @@
         <div id="{{ chart_id | safe }}"></div>
     </figure>
 
-    <form method="get">
+    <form id="field_form">
         {% csrf_token %}
         {{ form.as_ul }}
-        <input type="submit" value="Apply">
+        <button id="apply" onclick="apply()"> Apply </button>
     </form>
 {% endblock %}
 
 {% block scripts %}
     <script>
-        {# TODO: Evaluate chart with AJAX requests on value changes #}
-        let changed = false;
+        const activityId = {{ activity.id }};
+        const title = "{{ title|safe }}";
+        let xAxis = {{ xAxis|safe }};
+        let tooltip = {{ tooltip|safe }};
 
-        form = document.getElementsByTagName('form')[0]
+        let series;
+        let chart;
 
-        form.addEventListener('input', function () {
-            changed = true
-        })
+        apply = function () {
+            let form = document.getElementById("field_form").getElementsByTagName('input')
+            let fields = [];
 
-        form.addEventListener('submit', function (event) {
-            if (!changed) {
-                event.preventDefault()
+            for (let i = 1; i < form.length; i++) {
+                let f = form[i].getAttribute('name')
+                if (document.getElementById('id_' + f).checked) {
+                    fields.push(f)
+                }
             }
-        })
 
-        var title = "{{ title|safe }}"
-        var xAxis = {{ xAxis|safe }}
-        var yAxis = {{ yAxis|safe }}
-        var series = {{ series|safe }}
-        var tooltip = {{ tooltip|safe }}
+            $.ajax({
+                url: '/activity/data/' + activityId,
+                type: 'GET',
+                data: {
+                    'fields': fields
+                },
+                dataType: 'json',
+                success: function (data) {
+                    for (const key in data.series) {
+                        if (data.series.hasOwnProperty(key)) {
+                            chart.addSeries({
+                                name: key,
+                                data: data.series[key]
+                            })
+                        }
+                    }
+                }
+            });
+        }
 
-        Highcharts.chart('{{ chart_id }}',
+        $(document).ready( function () {
+            chart = new Highcharts.chart('{{ chart_id }}',
             {
                 title: title,
-                yAxis: yAxis,
+                yAxis: {},
                 xAxis: xAxis,
                 series: series,
                 tooltip: tooltip,
@@ -64,5 +84,9 @@
                     }
                 }
             })
+
+            apply()
+        })
+
     </script>
 {% endblock %}
