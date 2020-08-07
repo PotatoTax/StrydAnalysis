@@ -20,8 +20,9 @@
     <form id="field_form">
         {% csrf_token %}
         {{ form.as_ul }}
-        <button id="apply" onclick="apply()"> Apply </button>
     </form>
+
+    <button id="apply" onclick="apply()"> Apply </button>
 {% endblock %}
 
 {% block scripts %}
@@ -53,6 +54,9 @@
                 },
                 dataType: 'json',
                 success: function (data) {
+                    while (chart.series.length) {
+                        chart.series[0].remove()
+                    }
                     for (const key in data.series) {
                         if (data.series.hasOwnProperty(key)) {
                             chart.addSeries({
