@@ -16,7 +16,7 @@
         <div id="{{ chart_id | safe }}"></div>
     </figure>
 
-    <form action="" method="post">
+    <form method="get">
         {% csrf_token %}
         {{ form.as_ul }}
         <input type="submit" value="Apply">
@@ -25,10 +25,26 @@
 
 {% block scripts %}
     <script>
-        var title = "{{ title|safe }}";
+        {# TODO: Evaluate chart with AJAX requests on value changes #}
+        let changed = false;
+
+        form = document.getElementsByTagName('form')[0]
+
+        form.addEventListener('input', function () {
+            changed = true
+        })
+
+        form.addEventListener('submit', function (event) {
+            if (!changed) {
+                event.preventDefault()
+            }
+        })
+
+        var title = "{{ title|safe }}"
         var xAxis = {{ xAxis|safe }}
         var yAxis = {{ yAxis|safe }}
         var series = {{ series|safe }}
+        var tooltip = {{ tooltip|safe }}
 
         Highcharts.chart('{{ chart_id }}',
             {
@@ -36,6 +52,7 @@
                 yAxis: yAxis,
                 xAxis: xAxis,
                 series: series,
+                tooltip: tooltip,
                 plotOptions: {
                     series: {
                         states: {

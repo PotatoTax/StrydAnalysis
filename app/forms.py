@@ -2,7 +2,7 @@ from django import forms
 
 
 class ActivityDataForm(forms.Form):
-    power = forms.BooleanField(label="Power", required=False)
+    power = forms.BooleanField(label="Power", initial=True, required=False)
     speed = forms.BooleanField(label="Speed", required=False)
     heart_rate = forms.BooleanField(label="Heart Rate", required=False)
     cadence = forms.BooleanField(label="Cadence", required=False)
