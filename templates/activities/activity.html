@@ -20,7 +20,7 @@
     <ul>
         <li>
             <label for="power">Power:</label>
-            <input type="checkbox" id="power">
+            <input type="checkbox" id="power" checked>
         </li>
         <li>
             <label for="speed">Speed:</label>
@@ -86,14 +86,11 @@
 
             if (newFields.length) {
                 $.ajax({
-                    url: '/activity/data/' + activityId + "/",
+                    url: `/activity/data/{{activity.id}}/`,
                     type: 'GET',
-                    data: {
-                        'fields': newFields
-                    },
+                    data: {'fields': newFields},
                     dataType: 'json',
                     success: function (data) {
-
                         for (const key in data.series) {
                             if (data.series.hasOwnProperty(key)) {
                                 chart.addSeries({
