@@ -28,7 +28,6 @@
 {% block scripts %}
     <script>
         const activityId = {{ activity.id }};
-        let xAxis = {{ xAxis|safe }};
 
         let checkedFields;
         let displayedFields = [];
@@ -108,12 +107,26 @@
             {
                 title: "Activity Data",
                 yAxis: {},
-                xAxis: xAxis,
+                xAxis: {
+                    min: 0,
+                    showFirstLabel: false,
+                    crosshair: {
+                        width: 1
+                    },
+                    type: 'datetime',
+                    labels: {
+                        format: '{value:%H:%M:%S}'
+                    }
+                },
                 series: series,
-                tooltip: {shared: true},
+                tooltip: {
+                    xDateFormat: '%H:%M:%S',
+                    shared: true
+                },
                 credits: {enabled: false},
                 plotOptions: {
                     series: {
+                        pointInterval: 1000,
                         states: {
                             hover: {
                                 lineWidth: 1

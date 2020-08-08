@@ -24,19 +24,8 @@ def activity_page(request, activity_id):
 
     activity = get_object_or_404(Activity, pk=activity_id)
 
-    times = [gmtime(s) for s in range(int(activity.timer_time))]
-
-    for i in range(len(times)):
-        t = strftime("%H:%M:%S", times[i])
-        times[i] = t.lstrip("0:")
-
     context = {
         'activity': activity,
-        'xAxis': {
-            "title": {"text": "Time (hh:mm:ss)"},
-            "categories": times,
-            "crosshairs": 'true'
-        },
         'form': form
     }
 
