@@ -1,3 +1,6 @@
+from datetime import time
+from time import ctime, strftime, gmtime, mktime
+
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 
@@ -21,34 +24,19 @@ def activity_page(request, activity_id):
 
     activity = get_object_or_404(Activity, pk=activity_id)
 
-    times = []
-    for s in range(int(activity.timer_time)):
-        t = ""
-        if s >= 3600:
-            t += str(s // 3600) + ":"
-            if (s % 3600) // 60 < 10:
-                t += "0"
-        t += str((s % 3600) // 60) + ":"
-        if s % 60 < 10:
-            t += "0"
-        t += str(s % 60 // 1)
-        times.append(t)
+    times = [gmtime(s) for s in range(int(activity.timer_time))]
+
+    for i in range(len(times)):
+        t = strftime("%H:%M:%S", times[i])
+        times[i] = t.lstrip("0:")
 
     context = {
         'activity': activity,
-        'chart_id': 'chart_id',
-        'chart': {
-            "render_to": 'chart_id',
-            "type": 'line',
-            "height": 500
-        },
-        'title': 'Activity Data',
         'xAxis': {
             "title": {"text": "Time (hh:mm:ss)"},
             "categories": times,
             "crosshairs": 'true'
         },
-        'tooltip': {'shared': 'true'},
         'form': form
     }
 
@@ -57,6 +45,8 @@ def activity_page(request, activity_id):
 
 def activity_data(request, activity_id):
     # TODO: Split series into separate panes
+    # TODO: Create detail chart
+    # TODO: Implement async loading?
     activity = get_object_or_404(Activity, pk=activity_id)
 
     fields = request.GET.getlist('fields[]')

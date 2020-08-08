@@ -14,7 +14,7 @@
 
 {% block body %}
     <figure class="highcharts-figure">
-        <div id="{{ chart_id | safe }}"></div>
+        <div id="activity_data"></div>
     </figure>
 
     <form id="field_form">
@@ -28,9 +28,7 @@
 {% block scripts %}
     <script>
         const activityId = {{ activity.id }};
-        const title = "{{ title|safe }}";
         let xAxis = {{ xAxis|safe }};
-        let tooltip = {{ tooltip|safe }};
 
         let checkedFields;
         let displayedFields = [];
@@ -84,7 +82,7 @@
 
             if (newFields.length) {
                 $.ajax({
-                    url: '/activity/data/' + activityId,
+                    url: '/activity/data/' + activityId + "/",
                     type: 'GET',
                     data: {
                         'fields': newFields
@@ -106,13 +104,14 @@
         }
 
         $(document).ready( function () {
-            chart = new Highcharts.chart('{{ chart_id }}',
+            chart = new Highcharts.chart('activity_data',
             {
-                title: title,
+                title: "Activity Data",
                 yAxis: {},
                 xAxis: xAxis,
                 series: series,
-                tooltip: tooltip,
+                tooltip: {shared: true},
+                credits: {enabled: false},
                 plotOptions: {
                     series: {
                         states: {
