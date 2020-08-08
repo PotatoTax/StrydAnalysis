@@ -82,3 +82,13 @@ class Record(models.Model):
 
     def __str__(self):
         return f"Distance: {self.distance}\nSpeed: {self.speed}\nTime: {self.timestamp}"
+
+
+class PowerCurveEntry(models.Model):
+    activity = models.ForeignKey(Activity, models.CASCADE)
+
+    power = models.IntegerField()
+    duration = models.IntegerField()
+
+    def __str__(self):
+        return f"Duration: {self.duration}\nPower: {self.power}"
