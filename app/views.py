@@ -1,6 +1,3 @@
-from datetime import time
-from time import ctime, strftime, gmtime, mktime
-
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 
@@ -17,16 +14,10 @@ def index(request):
 
 
 def activity_page(request, activity_id):
-    form = ActivityDataForm()
-
-    if request.method == 'GET':
-        form = ActivityDataForm(request.GET)
-
     activity = get_object_or_404(Activity, pk=activity_id)
 
     context = {
-        'activity': activity,
-        'form': form
+        'activity': activity
     }
 
     return render(request, 'activities/activity.html', context)
