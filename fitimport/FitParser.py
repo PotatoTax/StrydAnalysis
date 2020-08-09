@@ -22,17 +22,15 @@ class FITParser:
         self.load_activity(records)
         self.load_laps(records)
 
-        for lap in self.laps:
-            lap.activity = self.activity
-            lap.save()
+        Lap.objects.bulk_create(self.laps)
 
         self.load_records(records)
 
         for j in range(len(self.laps)):
             for i in range(self.laps[j].record_start, self.laps[j].record_end + 1):
-                self.records[i].activity = self.activity
                 self.records[i].lap = self.laps[j]
-                self.records[i].save()
+
+        Record.objects.bulk_create(self.records)
 
     def find_max(self, k):
         t = sum(self.power[:k])
@@ -87,8 +85,8 @@ class FITParser:
 
         self.activity.start_time = activity_data.get_value('start_time')
         self.activity.elapsed_time = activity_data.get_value('total_elapsed_time')
-        self.activity.start_position_lat = activity_data.get_value('start_position_lat') * 180 / (2**31)
-        self.activity.start_position_long = activity_data.get_value('start_position_long') * 180 / (2**31)
+        self.activity.start_position_lat = activity_data.get_value('start_position_lat') * 180 / (2 ** 31)
+        self.activity.start_position_long = activity_data.get_value('start_position_long') * 180 / (2 ** 31)
         self.activity.timer_time = activity_data.get_value('total_timer_time')
         self.activity.distance = activity_data.get_value('total_distance')
         self.activity.strides = activity_data.get_value('total_strides')
@@ -125,6 +123,7 @@ class FITParser:
         for lap in [r for r in records if r.name == 'lap']:
             current_lap = Lap()
 
+            current_lap.activity = self.activity
             current_lap.start_time = lap.get_value('start_time')
             current_lap.end_time = lap.get_value('timestamp')
             current_lap.start_position_lat = lap.get_value('start_position_lat')
@@ -172,26 +171,53 @@ class FITParser:
             lap.form_power = form_power / lap.timer_time
 
     def load_records(self, records):
-        self.records = []
-        for r in records:
-            if r.name != 'record':
-                continue
+        time_zone = datetime.timezone(datetime.timedelta(hours=-5))
 
-            record = Record()
-            # TODO: get timezone from FIT file
-            time_zone = datetime.timezone(datetime.timedelta(hours=-5))
-            ts = r.get_value('timestamp')
-            record.timestamp = datetime.datetime(ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second, ts.microsecond, time_zone)
-            record.position_lat = r.get_value('position_lat') * 180 / (2**31)
-            record.position_long = r.get_value('position_long') * 180 / (2 ** 31)
-            record.distance = r.get_value('distance')
-            record.speed = r.get_value('enhanced_speed')
-            record.altitude = r.get_value('enhanced_altitude')
-            record.heart_rate = r.get_value('heart_rate')
-            record.cadence = r.get_value('cadence')
-            record.power = r.get_value('Power')
-            record.ground_time = r.get_value('Ground Time')
-            record.air_power = r.get_value('Air Power')
-            record.form_power = r.get_value('Form Power')
-
-            self.records.append(record)
+        self.records = [
+            Record(
+                activity=self.activity,
+                timestamp=datetime.datetime(
+                    1, 1, 1,
+                    r.get_value('timestamp').hour,
+                    r.get_value('timestamp').minute,
+                    r.get_value('timestamp').second,
+                    r.get_value('timestamp').microsecond,
+                    time_zone
+                ),
+                position_lat=r.get_value('position_lat') * 180 / (2 ** 31),
+                position_long=r.get_value('position_long') * 180 / (2 ** 31),
+                distance=r.get_value('distance'),
+                speed=r.get_value('enhanced_speed'),
+                altitude=r.get_value('enhanced_altitude'),
+                heart_rate=r.get_value('heart_rate'),
+                cadence=r.get_value('cadence'),
+                power=r.get_value('Power'),
+                ground_time=r.get_value('Ground Time'),
+                air_power=r.get_value('Air Power'),
+                form_power=r.get_value('Form Power'),
+            )
+            for r in records if r.name == 'record'
+        ]
+        # for r in records:
+        #     if r.name != 'record':
+        #         continue
+        #
+        #     record = Record()
+        #     # TODO: get timezone from FIT file
+        #     time_zone = datetime.timezone(datetime.timedelta(hours=-5))
+        #     ts = r.get_value('timestamp')
+        #     record.timestamp = datetime.datetime(ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second,
+        #                                          ts.microsecond, time_zone)
+        #     record.position_lat = r.get_value('position_lat') * 180 / (2 ** 31)
+        #     record.position_long = r.get_value('position_long') * 180 / (2 ** 31)
+        #     record.distance = r.get_value('distance')
+        #     record.speed = r.get_value('enhanced_speed')
+        #     record.altitude = r.get_value('enhanced_altitude')
+        #     record.heart_rate = r.get_value('heart_rate')
+        #     record.cadence = r.get_value('cadence')
+        #     record.power = r.get_value('Power')
+        #     record.ground_time = r.get_value('Ground Time')
+        #     record.air_power = r.get_value('Air Power')
+        #     record.form_power = r.get_value('Form Power')
+        #
+        #     self.records.append(record)
