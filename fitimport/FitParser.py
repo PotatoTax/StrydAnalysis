@@ -128,35 +128,33 @@ class FITParser:
         self.activity.save()
 
     def load_laps(self, records):
-        self.laps = []
-
-        for lap in [r for r in records if r.name == 'lap']:
-            current_lap = Lap()
-
-            current_lap.activity = self.activity
-            current_lap.start_time = pytz.utc.localize(lap.get_value('start_time') + self.tz_offset)
-            current_lap.end_time = pytz.utc.localize(lap.get_value('timestamp') + self.tz_offset)
-            current_lap.start_position_lat = lap.get_value('start_position_lat')
-            current_lap.start_position_long = lap.get_value('start_position_long')
-            current_lap.end_position_lat = lap.get_value('end_position_lat')
-            current_lap.end_position_long = lap.get_value('end_position_long')
-            current_lap.elapsed_time = lap.get_value('total_elapsed_time')
-            current_lap.timer_time = lap.get_value('total_timer_time')
-            current_lap.distance = lap.get_value('total_distance')
-            current_lap.strides = lap.get_value('total_strides')
-            current_lap.speed = lap.get_value('enhanced_avg_speed')
-            current_lap.max_speed = lap.get_value('enhanced_max_speed')
-            current_lap.calories = lap.get_value('total_calories')
-            current_lap.ascent = lap.get_value('total_ascent')
-            current_lap.descent = lap.get_value('total_descent')
-            current_lap.heart_rate = lap.get_value('avg_heart_rate')
-            current_lap.max_heart_rate = lap.get_value('max_heart_rate')
-            current_lap.cadence = lap.get_value('avg_running_cadence')
-            current_lap.max_cadence = lap.get_value('max_running_cadence')
-            current_lap.lap_trigger = lap.get_value('lap_trigger')
-            current_lap.power = lap.get_value('Lap Power')
-
-            self.laps.append(current_lap)
+        self.laps = [
+            Lap(
+                activity=self.activity,
+                start_time=pytz.utc.localize(lap.get_value('start_time') + self.tz_offset),
+                end_time=pytz.utc.localize(lap.get_value('timestamp') + self.tz_offset),
+                start_position_lat=lap.get_value('start_position_lat'),
+                start_position_long=lap.get_value('start_position_long'),
+                end_position_lat=lap.get_value('end_position_lat'),
+                end_position_long=lap.get_value('end_position_long'),
+                elapsed_time=lap.get_value('total_elapsed_time'),
+                timer_time=lap.get_value('total_timer_time'),
+                distance=lap.get_value('total_distance'),
+                strides=lap.get_value('total_strides'),
+                speed=lap.get_value('enhanced_avg_speed'),
+                max_speed=lap.get_value('enhanced_max_speed'),
+                calories=lap.get_value('total_calories'),
+                ascent=lap.get_value('total_ascent'),
+                descent=lap.get_value('total_descent'),
+                heart_rate=lap.get_value('avg_heart_rate'),
+                max_heart_rate=lap.get_value('max_heart_rate'),
+                cadence=lap.get_value('avg_running_cadence'),
+                max_cadence=lap.get_value('max_running_cadence'),
+                lap_trigger=lap.get_value('lap_trigger'),
+                power=lap.get_value('Lap Power')
+            )
+            for lap in [r for r in records if r.name == 'lap']
+        ]
 
         for lap in self.laps:
             ground_time = 0
