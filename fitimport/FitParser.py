@@ -9,30 +9,49 @@ from app.models import Activity, Lap, Record, PowerCurveEntry
 
 
 class FITParser:
+    activity_data = None
     activity = None
     records = None
     laps = None
     power = None
     tz_offset = None
+    decoded = None
 
     def parse_fit(self, file: InMemoryUploadedFile):
         # TODO: Bulk update?
-        decoded = FitFile(file.read())
+        self.decoded = FitFile(file.read())
 
-        records = [r for r in decoded.get_messages()]
+        records = [r for r in self.decoded.get_messages(name='record')]
+        print(len(records))
+        self.set_offset()
 
-        self.load_activity(records)
         self.load_records(records)
+        print(len(self.records))
 
-        self.load_laps(records)
+        self.load_activity()
+
+        self.load_laps()
 
         Lap.objects.bulk_create(self.laps)
 
         for j in range(len(self.laps)):
             for i in range(self.laps[j].record_start, self.laps[j].record_end + 1):
+                self.records[i].activity = self.activity
                 self.records[i].lap = self.laps[j]
 
         Record.objects.bulk_create(self.records)
+
+    def set_offset(self):
+        self.activity_data = [r for r in self.decoded.get_messages(name='session')][0]
+
+        lat = self.activity_data.get_value('start_position_lat') * 180 / 2 ** 31
+        long = self.activity_data.get_value('start_position_long') * 180 / 2 ** 31
+
+        tzw = tzwhere.tzwhere()
+        tz = pytz.timezone(tzw.tzNameAt(lat, long))
+        start_time = self.activity_data.get_value('start_time')
+
+        self.tz_offset = tz.utcoffset(start_time)
 
     def find_max(self, k):
         t = sum(self.power[:k])
@@ -75,59 +94,41 @@ class FITParser:
             entry.duration = 1 if i < 1 else i * 5
             entry.save()
 
-    def load_activity(self, records):
-        activity_data = None
-
-        for r in records:
-            if r.name == 'session':
-                activity_data = r
-                break
-
-        lat = activity_data.get_value('start_position_lat') * 180 / 2 ** 31
-        long = activity_data.get_value('start_position_long') * 180 / 2 ** 31
-
-        tzw = tzwhere.tzwhere()
-        tz = pytz.timezone(tzw.tzNameAt(lat, long))
-        start_time = activity_data.get_value('start_time')
-
-        self.tz_offset = tz.utcoffset(start_time)
-
+    def load_activity(self):
         self.activity = Activity(
-            start_time=start_time + self.tz_offset,
-            elapsed_time=activity_data.get_value('total_elapsed_time'),
-            start_position_lat=lat,
-            start_position_long=long,
-            timer_time=activity_data.get_value('total_timer_time'),
-            distance=activity_data.get_value('total_distance'),
-            strides=activity_data.get_value('total_strides'),
-            speed=activity_data.get_value('enhanced_avg_speed'),
-            max_speed=activity_data.get_value('enhanced_max_speed'),
-            calories=activity_data.get_value('total_calories'),
-            ascent=activity_data.get_value('total_ascent'),
-            descent=activity_data.get_value('total_descent'),
-            lap_count=activity_data.get_value('num_laps'),
-            heart_rate=activity_data.get_value('avg_heart_rate'),
-            max_heart_rate=activity_data.get_value('max_heart_rate'),
-            cadence=activity_data.get_value('avg_running_cadence'),
-            max_cadence=activity_data.get_value('max_running_cadence'),
-            aerobic_training_effect=activity_data.get_value('total_training_effect'),
-            anaerobic_training_effect=activity_data.get_value('total_anaerobic_training_effect'),
+            start_time=pytz.utc.localize(self.activity_data.get_value('start_time') + self.tz_offset),
+            elapsed_time=self.activity_data.get_value('total_elapsed_time'),
+            start_position_lat=self.activity_data.get_value('start_position_lat'),
+            start_position_long=self.activity_data.get_value('start_position_long'),
+            timer_time=self.activity_data.get_value('total_timer_time'),
+            distance=self.activity_data.get_value('total_distance'),
+            strides=self.activity_data.get_value('total_strides'),
+            speed=self.activity_data.get_value('enhanced_avg_speed'),
+            max_speed=self.activity_data.get_value('enhanced_max_speed'),
+            calories=self.activity_data.get_value('total_calories'),
+            ascent=self.activity_data.get_value('total_ascent'),
+            descent=self.activity_data.get_value('total_descent'),
+            lap_count=self.activity_data.get_value('num_laps'),
+            heart_rate=self.activity_data.get_value('avg_heart_rate'),
+            max_heart_rate=self.activity_data.get_value('max_heart_rate'),
+            cadence=self.activity_data.get_value('avg_running_cadence'),
+            max_cadence=self.activity_data.get_value('max_running_cadence'),
+            aerobic_training_effect=self.activity_data.get_value('total_training_effect'),
+            anaerobic_training_effect=self.activity_data.get_value('total_anaerobic_training_effect'),
             max_power=0,
             power=0
         )
 
-        recs = [r for r in records if r.name == 'record']
+        for r in self.records:
+            if r.power > self.activity.max_power:
+                self.activity.max_power = r.power
+            self.activity.power += r.power
 
-        for r in recs:
-            if r.get_value('Power') > self.activity.max_power:
-                self.activity.max_power = r.get_value('Power')
-            self.activity.power += r.get_value('Power')
-
-        self.activity.power /= len(recs)
+        self.activity.power /= len(self.records)
 
         self.activity.save()
 
-    def load_laps(self, records):
+    def load_laps(self):
         self.laps = [
             Lap(
                 activity=self.activity,
@@ -153,7 +154,7 @@ class FITParser:
                 lap_trigger=lap.get_value('lap_trigger'),
                 power=lap.get_value('Lap Power')
             )
-            for lap in [r for r in records if r.name == 'lap']
+            for lap in self.decoded.get_messages(name='lap')
         ]
 
         for lap in self.laps:
@@ -180,7 +181,6 @@ class FITParser:
     def load_records(self, records):
         self.records = [
             Record(
-                activity=self.activity,
                 timestamp=pytz.utc.localize(r.get_value('timestamp') + self.tz_offset),
                 position_lat=r.get_value('position_lat') * 180 / (2 ** 31),
                 position_long=r.get_value('position_long') * 180 / (2 ** 31),
