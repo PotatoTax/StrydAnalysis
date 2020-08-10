@@ -25,7 +25,6 @@ def activity_page(request, activity_id):
 def activity_data(request, activity_id):
     # TODO: Split series into separate panes
     # TODO: Create detail chart
-    # TODO: Implement async loading?
     activity = get_object_or_404(Activity, pk=activity_id)
 
     fields = request.GET.getlist('fields[]')
