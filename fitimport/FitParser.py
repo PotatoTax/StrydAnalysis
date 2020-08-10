@@ -1,4 +1,3 @@
-import datetime
 from multiprocessing import Pool
 
 import pytz
@@ -14,6 +13,7 @@ class FITParser:
     records = None
     laps = None
     power = None
+    tz_offset = None
 
     def parse_fit(self, file: InMemoryUploadedFile):
         # TODO: Bulk update?
@@ -22,11 +22,11 @@ class FITParser:
         records = [r for r in decoded.get_messages()]
 
         self.load_activity(records)
+        self.load_records(records)
+
         self.load_laps(records)
 
         Lap.objects.bulk_create(self.laps)
-
-        self.load_records(records)
 
         for j in range(len(self.laps)):
             for i in range(self.laps[j].record_start, self.laps[j].record_end + 1):
@@ -52,8 +52,8 @@ class FITParser:
 
         pool = Pool(processes=4)
         activity_curve = pool.map(self.find_max, [1 if a == 0 else a * 5 for a in range(len(activity_curve))])
-        pool.close()
         pool.join()
+        pool.close()
         activity_curve = sorted(activity_curve, key=lambda x: x['duration'])
         print(activity_curve)
         print(self.activity.max_power)
@@ -83,46 +83,47 @@ class FITParser:
                 activity_data = r
                 break
 
-        self.activity = Activity()
-
-        lat = activity_data.get_value('start_position_lat') * 180 / 2**31
-        long = activity_data.get_value('start_position_long') * 180 / 2**31
+        lat = activity_data.get_value('start_position_lat') * 180 / 2 ** 31
+        long = activity_data.get_value('start_position_long') * 180 / 2 ** 31
 
         tzw = tzwhere.tzwhere()
         tz = pytz.timezone(tzw.tzNameAt(lat, long))
         start_time = activity_data.get_value('start_time')
 
-        self.activity.start_time = start_time + tz.utcoffset(start_time)
-        self.activity.elapsed_time = activity_data.get_value('total_elapsed_time')
-        self.activity.start_position_lat = lat
-        self.activity.start_position_long = long
-        self.activity.timer_time = activity_data.get_value('total_timer_time')
-        self.activity.distance = activity_data.get_value('total_distance')
-        self.activity.strides = activity_data.get_value('total_strides')
-        self.activity.speed = activity_data.get_value('enhanced_avg_speed')
-        self.activity.max_speed = activity_data.get_value('enhanced_max_speed')
-        self.activity.calories = activity_data.get_value('total_calories')
-        self.activity.ascent = activity_data.get_value('total_ascent')
-        self.activity.descent = activity_data.get_value('total_descent')
-        self.activity.lap_count = activity_data.get_value('num_laps')
-        self.activity.heart_rate = activity_data.get_value('avg_heart_rate')
-        self.activity.max_heart_rate = activity_data.get_value('max_heart_rate')
-        self.activity.cadence = activity_data.get_value('avg_running_cadence')
-        self.activity.max_cadence = activity_data.get_value('max_running_cadence')
-        self.activity.aerobic_training_effect = activity_data.get_value('total_training_effect')
-        self.activity.anaerobic_training_effect = activity_data.get_value('total_anaerobic_training_effect')
+        self.tz_offset = tz.utcoffset(start_time)
 
-        self.activity.max_power = 0
-        power = 0
+        self.activity = Activity(
+            start_time=start_time + self.tz_offset,
+            elapsed_time=activity_data.get_value('total_elapsed_time'),
+            start_position_lat=lat,
+            start_position_long=long,
+            timer_time=activity_data.get_value('total_timer_time'),
+            distance=activity_data.get_value('total_distance'),
+            strides=activity_data.get_value('total_strides'),
+            speed=activity_data.get_value('enhanced_avg_speed'),
+            max_speed=activity_data.get_value('enhanced_max_speed'),
+            calories=activity_data.get_value('total_calories'),
+            ascent=activity_data.get_value('total_ascent'),
+            descent=activity_data.get_value('total_descent'),
+            lap_count=activity_data.get_value('num_laps'),
+            heart_rate=activity_data.get_value('avg_heart_rate'),
+            max_heart_rate=activity_data.get_value('max_heart_rate'),
+            cadence=activity_data.get_value('avg_running_cadence'),
+            max_cadence=activity_data.get_value('max_running_cadence'),
+            aerobic_training_effect=activity_data.get_value('total_training_effect'),
+            anaerobic_training_effect=activity_data.get_value('total_anaerobic_training_effect'),
+            max_power=0,
+            power=0
+        )
 
         recs = [r for r in records if r.name == 'record']
 
         for r in recs:
             if r.get_value('Power') > self.activity.max_power:
                 self.activity.max_power = r.get_value('Power')
-            power += r.get_value('Power')
+            self.activity.power += r.get_value('Power')
 
-        self.activity.power = power / len(recs)
+        self.activity.power /= len(recs)
 
         self.activity.save()
 
@@ -133,8 +134,8 @@ class FITParser:
             current_lap = Lap()
 
             current_lap.activity = self.activity
-            current_lap.start_time = lap.get_value('start_time')
-            current_lap.end_time = lap.get_value('timestamp')
+            current_lap.start_time = pytz.utc.localize(lap.get_value('start_time') + self.tz_offset)
+            current_lap.end_time = pytz.utc.localize(lap.get_value('timestamp') + self.tz_offset)
             current_lap.start_position_lat = lap.get_value('start_position_lat')
             current_lap.start_position_long = lap.get_value('start_position_long')
             current_lap.end_position_lat = lap.get_value('end_position_lat')
@@ -157,20 +158,19 @@ class FITParser:
 
             self.laps.append(current_lap)
 
-        recs = [r for r in records if r.name == 'record']
         for lap in self.laps:
             ground_time = 0
             air_power = 0
             form_power = 0
 
             j = 0
-            while j < len(recs) and recs[j].get_value('timestamp') < lap.start_time:
+            while j < len(self.records) and self.records[j].timestamp < lap.start_time:
                 j += 1
             lap.record_start = j
-            while j < len(recs) and recs[j].get_value('timestamp') <= lap.end_time:
-                ground_time += recs[j].get_value('Ground Time')
-                air_power += recs[j].get_value('Air Power')
-                form_power += recs[j].get_value('Form Power')
+            while j < len(self.records) and self.records[j].timestamp <= lap.end_time:
+                ground_time += self.records[j].ground_time
+                air_power += self.records[j].air_power
+                form_power += self.records[j].form_power
                 j += 1
             if j == lap.record_start:
                 break
@@ -180,19 +180,10 @@ class FITParser:
             lap.form_power = form_power / lap.timer_time
 
     def load_records(self, records):
-        time_zone = datetime.timezone(datetime.timedelta(hours=-5))
-
         self.records = [
             Record(
                 activity=self.activity,
-                timestamp=datetime.datetime(
-                    1, 1, 1,
-                    r.get_value('timestamp').hour,
-                    r.get_value('timestamp').minute,
-                    r.get_value('timestamp').second,
-                    r.get_value('timestamp').microsecond,
-                    time_zone
-                ),
+                timestamp=pytz.utc.localize(r.get_value('timestamp') + self.tz_offset),
                 position_lat=r.get_value('position_lat') * 180 / (2 ** 31),
                 position_long=r.get_value('position_long') * 180 / (2 ** 31),
                 distance=r.get_value('distance'),
@@ -207,26 +198,3 @@ class FITParser:
             )
             for r in records if r.name == 'record'
         ]
-        # for r in records:
-        #     if r.name != 'record':
-        #         continue
-        #
-        #     record = Record()
-        #     # TODO: get timezone from FIT file
-        #     time_zone = datetime.timezone(datetime.timedelta(hours=-5))
-        #     ts = r.get_value('timestamp')
-        #     record.timestamp = datetime.datetime(ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second,
-        #                                          ts.microsecond, time_zone)
-        #     record.position_lat = r.get_value('position_lat') * 180 / (2 ** 31)
-        #     record.position_long = r.get_value('position_long') * 180 / (2 ** 31)
-        #     record.distance = r.get_value('distance')
-        #     record.speed = r.get_value('enhanced_speed')
-        #     record.altitude = r.get_value('enhanced_altitude')
-        #     record.heart_rate = r.get_value('heart_rate')
-        #     record.cadence = r.get_value('cadence')
-        #     record.power = r.get_value('Power')
-        #     record.ground_time = r.get_value('Ground Time')
-        #     record.air_power = r.get_value('Air Power')
-        #     record.form_power = r.get_value('Form Power')
-        #
-        #     self.records.append(record)
