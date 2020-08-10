@@ -34,18 +34,13 @@ def activity_data(request, activity_id):
 
     for f in fields:
         series[f] = []
-        if f == 'ground_time':
-            for r in activity.record_set.all():
+
+    for r in activity.record_set.all().iterator():
+        for f in fields:
+            if f == 'ground_time':
                 if r.__getattribute__(f) > 350:
                     series[f].append(350)
-                else:
-                    series[f].append(r.__getattribute__(f))
-        else:
-            for r in activity.record_set.all():
+            else:
                 series[f].append(r.__getattribute__(f))
 
-    data = {
-        'series': series
-    }
-
-    return JsonResponse(data)
+    return JsonResponse({'series': series})
