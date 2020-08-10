@@ -39,6 +39,8 @@ def activity_data(request, activity_id):
             if f == 'ground_time':
                 if r.__getattribute__(f) > 350:
                     series[f].append(350)
+                else:
+                    series[f].append(r.__getattribute__(f))
             else:
                 series[f].append(r.__getattribute__(f))
 

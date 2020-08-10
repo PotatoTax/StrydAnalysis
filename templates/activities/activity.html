@@ -53,12 +53,12 @@
 
 {% block scripts %}
     <script>
+        const data = {'power': [], 'speed': [], 'heart_rate': [], 'cadence': [], 'ground_time': [], 'air_power': [], 'form_power': []}
         const fields = ['power', 'speed', 'heart_rate', 'cadence', 'ground_time', 'air_power', 'form_power']
         const activityId = {{ activity.id }};
 
         let checkedFields;
-        let displayedFields = [];
-        let series;
+        let displayedFields = ['power'];
         let chart;
 
         apply = function () {
@@ -84,23 +84,11 @@
                 }
             }
 
-            if (newFields.length) {
-                $.ajax({
-                    url: `/activity/data/{{activity.id}}/`,
-                    type: 'GET',
-                    data: {'fields': newFields},
-                    dataType: 'json',
-                    success: function (data) {
-                        for (const key in data.series) {
-                            if (data.series.hasOwnProperty(key)) {
-                                chart.addSeries({
-                                    name: key,
-                                    data: data.series[key]
-                                })
-                            }
-                        }
-                    }
-                });
+            for (const f in newFields) {
+                chart.addSeries({
+                    name: newFields[f],
+                    data: data[newFields[f]]
+                })
             }
         }
 
@@ -120,7 +108,7 @@
                         format: '{value:%H:%M:%S}'
                     }
                 },
-                series: series,
+                series: [],
                 tooltip: {
                     xDateFormat: '%H:%M:%S',
                     shared: true
@@ -139,7 +127,23 @@
                 }
             })
 
-            apply()
+            $.ajax({
+                url: `/activity/data/{{activity.id}}/`,
+                type: 'GET',
+                data: {'fields': fields},
+                dataType: 'json',
+                success: function (response) {
+                    for (const f in fields) {
+                        data[fields[f]] = response.series[fields[f]]
+                        console.log(data[fields[f]])
+                    }
+
+                    chart.addSeries({
+                        name: 'power',
+                        data: data['power']
+                    })
+                }
+            });
         })
 
     </script>
