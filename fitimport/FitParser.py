@@ -1,8 +1,10 @@
 import datetime
 from multiprocessing import Pool
 
+import pytz
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from fitparse import FitFile
+from tzwhere import tzwhere
 
 from app.models import Activity, Lap, Record, PowerCurveEntry
 
@@ -83,10 +85,17 @@ class FITParser:
 
         self.activity = Activity()
 
-        self.activity.start_time = activity_data.get_value('start_time')
+        lat = activity_data.get_value('start_position_lat') * 180 / 2**31
+        long = activity_data.get_value('start_position_long') * 180 / 2**31
+
+        tzw = tzwhere.tzwhere()
+        tz = pytz.timezone(tzw.tzNameAt(lat, long))
+        start_time = activity_data.get_value('start_time')
+
+        self.activity.start_time = start_time + tz.utcoffset(start_time)
         self.activity.elapsed_time = activity_data.get_value('total_elapsed_time')
-        self.activity.start_position_lat = activity_data.get_value('start_position_lat') * 180 / (2 ** 31)
-        self.activity.start_position_long = activity_data.get_value('start_position_long') * 180 / (2 ** 31)
+        self.activity.start_position_lat = lat
+        self.activity.start_position_long = long
         self.activity.timer_time = activity_data.get_value('total_timer_time')
         self.activity.distance = activity_data.get_value('total_distance')
         self.activity.strides = activity_data.get_value('total_strides')
