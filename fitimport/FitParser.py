@@ -22,11 +22,9 @@ class FITParser:
         self.decoded = FitFile(file.read())
 
         records = [r for r in self.decoded.get_messages(name='record')]
-        print(len(records))
         self.set_offset()
 
         self.load_records(records)
-        print(len(self.records))
 
         self.load_activity()
 
